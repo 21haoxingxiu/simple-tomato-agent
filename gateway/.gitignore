@@ -1,0 +1,21 @@
+# ─── Go compiled binaries ────────────────────────────────────
+gateway
+server
+*.exe
+*.exe~
+*.dll
+*.dylib
+*.test
+*.out
+
+# Go workspace
+go.work.sum
+
+# ─── Secrets ─────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ─── Misc ────────────────────────────────────────────────────
+*.log
+.DS_Store
