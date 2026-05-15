@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from pydantic import BaseModel, Field
-from typing import Literal
+from typing import Literal, Optional
 
 
 class ChatMessage(BaseModel):
@@ -10,7 +12,7 @@ class ChatMessage(BaseModel):
 class ChatRequest(BaseModel):
     messages: list[ChatMessage]
     workspace_id: str = "default"
-    knowledge_base_id: str | None = None
+    knowledge_base_id: Optional[str] = None
     stream: bool = False
 
 
