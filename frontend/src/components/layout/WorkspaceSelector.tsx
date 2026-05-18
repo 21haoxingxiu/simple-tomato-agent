@@ -1,14 +1,19 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { ChevronDown, Plus, Building2 } from "lucide-react"
 import { useWorkspaceStore } from "@/store/workspace"
 import clsx from "clsx"
 
 export function WorkspaceSelector() {
   const [open, setOpen] = useState(false)
-  const { workspaces, activeWorkspaceId, setActiveWorkspace } = useWorkspaceStore()
+  const { workspaces, activeWorkspaceId, setActiveWorkspace, refresh } =
+    useWorkspaceStore()
   const active = workspaces.find((w) => w.id === activeWorkspaceId)
+
+  useEffect(() => {
+    if (workspaces.length === 0) refresh()
+  }, [workspaces.length, refresh])
 
   return (
     <div className="relative">
@@ -20,7 +25,9 @@ export function WorkspaceSelector() {
         )}
       >
         <Building2 size={16} />
-        <span className="max-w-[140px] truncate">{active?.name ?? "选择工作区"}</span>
+        <span className="max-w-[160px] truncate">
+          {active?.name ?? (workspaces.length === 0 ? "暂无工作区" : "选择工作区")}
+        </span>
         <ChevronDown
           size={14}
           className={clsx("transition-transform", open && "rotate-180")}
@@ -35,6 +42,9 @@ export function WorkspaceSelector() {
               <p className="text-xs font-semibold text-gray-400 px-2 py-1 uppercase tracking-wide">
                 工作区
               </p>
+              {workspaces.length === 0 && (
+                <p className="text-xs text-gray-400 px-3 py-2">暂无工作区,登录后自动创建</p>
+              )}
               {workspaces.map((ws) => (
                 <button
                   key={ws.id}

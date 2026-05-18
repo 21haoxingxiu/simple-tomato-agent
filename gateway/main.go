@@ -16,41 +16,53 @@ func main() {
 
 	r := gin.Default()
 
-	// CORS
-	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:3000"},
-		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
-		AllowCredentials: true,
-	}))
+	// ---- 安全中间件 (最外层, 优先于业务) -----------------------------------
+	// IP 白名单: 默认仅本地回环, IP_ALLOWLIST 环境变量声明跨主机授信网段.
+	r.Use(middleware.IPAllowlist(
+		middleware.ParseAllowlist(cfg.IPAllowlistRaw),
+		cfg.TrustProxy,
+		"/health",
+	))
 
-	// Health check
+	// CORS: 显式来源白名单, 严禁通配符 "*".
+	r.Use(cors.New(cors.Config{
+		AllowOrigins:     cfg.AllowedOrigins,
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization", "X-Workspace-ID", "X-User-ID", "Accept"},
+		ExposeHeaders:    []string{"Content-Type", "Content-Disposition"},
+		AllowCredentials: true,
+		MaxAge:           86400,
+	}))
+	// ----------------------------------------------------------------------
+
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok", "service": "gateway"})
 	})
 
-	// Auth routes (public)
-	authHandler := handlers.NewAuthHandler(cfg.JWTSecret)
-	auth := r.Group("/api/auth")
-	{
-		auth.POST("/login", authHandler.Login)
-	}
-
-	// Protected routes
 	proxyHandler := handlers.NewProxyHandler(cfg.AgentServiceURL)
+
+	r.Any("/api/auth/*path", proxyHandler.ProxyToAgent)
+
 	api := r.Group("/api")
 	api.Use(middleware.Auth(cfg.JWTSecret))
 	{
-		api.GET("/me", authHandler.Me)
+		api.GET("/me", proxyHandler.ProxyToAgentRewrite("/auth/me"))
 
-		// Proxy to Python agent service
-		api.Any("/agent/*path", proxyHandler.ProxyToAgent)
-		api.Any("/chat/*path", proxyHandler.ProxyToAgent)
+		api.POST("/chat/stream", proxyHandler.ProxyStream)
+		api.POST("/chat/completions", proxyHandler.ProxyToAgent)
+		api.GET("/chat/conversations", proxyHandler.ProxyToAgent)
+		api.GET("/chat/conversations/:id/messages", proxyHandler.ProxyToAgent)
+		api.DELETE("/chat/conversations/:id", proxyHandler.ProxyToAgent)
+
 		api.Any("/knowledge/*path", proxyHandler.ProxyToAgent)
+		api.Any("/eval/*path", proxyHandler.ProxyToAgent)
+		api.Any("/voice/*path", proxyHandler.ProxyToAgent)
+		api.Any("/agent/*path", proxyHandler.ProxyToAgent)
 	}
 
-	log.Printf("Gateway listening on :%s", cfg.Port)
-	if err := r.Run(":" + cfg.Port); err != nil {
+	log.Printf("Gateway listening on %s -> agent=%s (origins=%v, ip_allowlist=%q, trust_proxy=%v)",
+		cfg.BindAddr, cfg.AgentServiceURL, cfg.AllowedOrigins, cfg.IPAllowlistRaw, cfg.TrustProxy)
+	if err := r.Run(cfg.BindAddr); err != nil {
 		log.Fatal(err)
 	}
 }

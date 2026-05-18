@@ -1,52 +1,172 @@
 version: "3.9"
 
+# ----------------------------------------------------------------------------
+# AgentStudio 完整服务编排
+#
+# 默认仅启动核心 4 个服务: frontend / gateway / agent / postgres / redis
+# 可选服务通过 profile 启用:
+#   docker compose --profile milvus up           # 加 Milvus
+#   docker compose --profile es up               # 加 Elasticsearch
+#   docker compose --profile neo4j up            # 加 Neo4j (GraphRAG)
+#   docker compose --profile full up             # 全部启用
+#
+# 安全约束 (合规整改):
+#   1. 所有对宿主机暴露的端口一律绑定 127.0.0.1, 禁止隐式 0.0.0.0;
+#      跨主机访问请走前置网关 + 防火墙 + IP 白名单, 禁止直接发布容器端口.
+#   2. 容器内部通信 (postgres/redis/milvus/es/neo4j 等) 默认不映射宿主机端口,
+#      仅通过 docker network 互通; 如需 DBA 临时调试, 显式追加端口映射且仍然
+#      限定 127.0.0.1 + ssh 隧道.
+#   3. agent 服务在容器内监听 0.0.0.0 仅供同 network 的 gateway 调用,
+#      宿主机 8000 端口默认不再暴露 (可调试时通过 ports 显式开启).
+#   4. 跨主机调用授信: 通过环境变量 IP_ALLOWLIST + CORS_ALLOWED_ORIGINS
+#      在 gateway/agent 显式声明放行清单 (见 agent/.env.example).
+# ----------------------------------------------------------------------------
+
 services:
   frontend:
     build: ./frontend
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     environment:
-      - NEXT_PUBLIC_GATEWAY_URL=http://localhost:8080
+      - NEXT_PUBLIC_GATEWAY_URL=${PUBLIC_GATEWAY_URL:-http://127.0.0.1:8080}
+      - NEXT_PUBLIC_VECTOR_STORE=${VECTOR_STORE:-Chroma}
+      - HOSTNAME=0.0.0.0
     depends_on:
       - gateway
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-      - /app/.next
 
   gateway:
     build: ./gateway
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     environment:
-      - JWT_SECRET=dev-secret-change-in-prod
+      - HOST=0.0.0.0
+      - PORT=8080
+      - JWT_SECRET=${JWT_SECRET:-dev-secret-change-in-prod}
       - AGENT_SERVICE_URL=http://agent:8000
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-http://127.0.0.1:3000}
+      - IP_ALLOWLIST=${IP_ALLOWLIST:-}
+      - TRUST_PROXY=${TRUST_PROXY:-false}
     depends_on:
       - agent
 
   agent:
     build: ./agent
-    ports:
-      - "8000:8000"
+    # 默认不向宿主机暴露 8000, 仅供 docker network 内的 gateway 调用.
+    # 如需临时调试, 取消下方注释 (仍绑定 127.0.0.1):
+    # ports:
+    #   - "127.0.0.1:8000:8000"
     environment:
+      - HOST=0.0.0.0
+      - PORT=8000
       - OPENAI_API_KEY=${OPENAI_API_KEY:-sk-placeholder}
-      - ENV=development
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o-mini}
+      - ENV=${ENV:-development}
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-http://127.0.0.1:3000}
+      # gateway 容器在 docker bridge 网段中, 须放行该网段才能跨容器调用.
+      # 默认 docker bridge: 172.16.0.0/12; 如自定义 network 请相应调整.
+      - IP_ALLOWLIST=${AGENT_IP_ALLOWLIST:-172.16.0.0/12}
+      - TRUST_PROXY=${TRUST_PROXY:-false}
+      # Embedding / Vector
+      - EMBEDDING_PROVIDER=${EMBEDDING_PROVIDER:-auto}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-text-embedding-3-small}
+      - VECTOR_STORE=${VECTOR_STORE:-chroma}
+      - CHROMA_DIR=/app/data/chroma
+      - MILVUS_URI=${MILVUS_URI:-}
+      # BM25 / ES
+      - BM25_BACKEND=${BM25_BACKEND:-memory}
+      - ES_URL=${ES_URL:-}
+      # GraphRAG
+      - ENABLE_GRAPHRAG=${ENABLE_GRAPHRAG:-false}
+      - NEO4J_URI=${NEO4J_URI:-}
+      - NEO4J_USER=${NEO4J_USER:-neo4j}
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD:-neo4j_pass}
+      # LangSmith
+      - LANGCHAIN_TRACING_V2=${LANGCHAIN_TRACING_V2:-false}
+      - LANGCHAIN_API_KEY=${LANGCHAIN_API_KEY:-}
+      - LANGCHAIN_PROJECT=${LANGCHAIN_PROJECT:-agentstudio}
+      # DB
+      - DATABASE_URL=postgresql+asyncpg://agent:agent123@postgres:5432/agentdb
+    volumes:
+      - agent_data:/app/data
+    depends_on:
+      - postgres
 
+  # ---- 数据库类服务: 默认仅在 docker network 内通信, 不向宿主机发布端口 ----
   postgres:
     image: postgres:16-alpine
-    ports:
-      - "5432:5432"
+    # 调试时如需本机访问, 显式追加: ports: ["127.0.0.1:5432:5432"]
     environment:
       - POSTGRES_DB=agentdb
       - POSTGRES_USER=agent
       - POSTGRES_PASSWORD=agent123
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agent -d agentdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
+    # 默认不暴露宿主机端口
+
+  # ----------- Optional: Milvus -----------
+  milvus-etcd:
+    image: quay.io/coreos/etcd:v3.5.5
+    profiles: ["milvus", "full"]
+    environment:
+      - ETCD_AUTO_COMPACTION_MODE=revision
+      - ETCD_AUTO_COMPACTION_RETENTION=1000
+      - ETCD_QUOTA_BACKEND_BYTES=4294967296
+    # etcd 仅供同 compose network 内的 milvus 调用, 不向宿主机映射端口.
+    command: etcd -advertise-client-urls=http://milvus-etcd:2379 -listen-client-urls http://0.0.0.0:2379 --data-dir /etcd
+
+  milvus-minio:
+    image: minio/minio:RELEASE.2023-03-20T20-16-18Z
+    profiles: ["milvus", "full"]
+    environment:
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+    command: minio server /minio_data
+
+  milvus:
+    image: milvusdb/milvus:v2.4.10
+    profiles: ["milvus", "full"]
+    command: ["milvus", "run", "standalone"]
+    environment:
+      ETCD_ENDPOINTS: milvus-etcd:2379
+      MINIO_ADDRESS: milvus-minio:9000
+    # 仅 agent 通过 docker network 调用, 不向宿主机暴露 19530/9091.
+    depends_on:
+      - milvus-etcd
+      - milvus-minio
+
+  # ----------- Optional: Elasticsearch (BM25) -----------
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
+    profiles: ["es", "full"]
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+
+  # ----------- Optional: Neo4j (GraphRAG) -----------
+  neo4j:
+    image: neo4j:5.21
+    profiles: ["neo4j", "full"]
+    environment:
+      - NEO4J_AUTH=neo4j/neo4j_pass
+      - NEO4J_PLUGINS=["apoc"]
+    # Neo4j Browser/Bolt 默认不暴露宿主机端口;
+    # 如需调试, 追加 "127.0.0.1:7474:7474" / "127.0.0.1:7687:7687".
+    volumes:
+      - neo4j_data:/data
 
 volumes:
   postgres_data:
+  agent_data:
+  es_data:
+  neo4j_data:

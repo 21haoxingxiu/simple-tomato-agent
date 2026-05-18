@@ -1,29 +1,66 @@
+"use client"
+
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
-import type { Workspace } from "@/types"
+import { authApi } from "@/lib/api"
 
-const DEFAULT_WORKSPACES: Workspace[] = [
-  { id: "ws-1", name: "默认工作区", description: "通用 AI 助手", createdAt: new Date().toISOString() },
-  { id: "ws-2", name: "研发工作区", description: "代码助手与技术问答", createdAt: new Date().toISOString() },
-  { id: "ws-3", name: "客服工作区", description: "客户支持与知识库", createdAt: new Date().toISOString() },
-]
+export interface Workspace {
+  id: string
+  name: string
+  description?: string
+  createdAt?: string
+}
 
 interface WorkspaceStore {
   workspaces: Workspace[]
   activeWorkspaceId: string
   setActiveWorkspace: (id: string) => void
-  addWorkspace: (workspace: Workspace) => void
+  setWorkspaces: (list: Workspace[]) => void
+  reset: () => void
+  refresh: () => Promise<void>
 }
 
 export const useWorkspaceStore = create<WorkspaceStore>()(
   persist(
-    (set) => ({
-      workspaces: DEFAULT_WORKSPACES,
-      activeWorkspaceId: DEFAULT_WORKSPACES[0].id,
+    (set, get) => ({
+      workspaces: [],
+      activeWorkspaceId: "",
+
       setActiveWorkspace: (id) => set({ activeWorkspaceId: id }),
-      addWorkspace: (workspace) =>
-        set((state) => ({ workspaces: [...state.workspaces, workspace] })),
+
+      setWorkspaces: (list) => {
+        const current = get().activeWorkspaceId
+        const exists = list.some((w) => w.id === current)
+        set({
+          workspaces: list,
+          activeWorkspaceId: exists ? current : list[0]?.id ?? "",
+        })
+      },
+
+      reset: () => set({ workspaces: [], activeWorkspaceId: "" }),
+
+      refresh: async () => {
+        try {
+          const list = await authApi.workspaces()
+          get().setWorkspaces(
+            list.map((w) => ({
+              id: w.id,
+              name: w.name,
+              description: w.description,
+              createdAt: w.created_at,
+            }))
+          )
+        } catch {
+          /* silent: 未登录或离线 */
+        }
+      },
     }),
-    { name: "workspace-storage" }
+    {
+      name: "workspace-storage",
+      partialize: (s) => ({
+        workspaces: s.workspaces,
+        activeWorkspaceId: s.activeWorkspaceId,
+      }),
+    }
   )
 )

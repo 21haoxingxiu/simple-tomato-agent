@@ -1,0 +1,174 @@
+from __future__ import annotations
+
+import logging
+import re
+from datetime import datetime
+from typing import Optional
+
+from fastapi import APIRouter, Depends, Header, HTTPException
+from pydantic import BaseModel, EmailStr, Field
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from auth.service import (
+    create_access_token,
+    decode_token,
+    hash_password,
+    verify_password,
+)
+from db.database import get_session
+from db.models import User, Workspace
+
+logger = logging.getLogger(__name__)
+router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+# ---------------- schemas ----------------
+
+
+class RegisterRequest(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=6, max_length=128)
+    name: Optional[str] = None
+
+
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=6, max_length=128)
+
+
+class UserOut(BaseModel):
+    id: str
+    email: str
+    name: str
+    default_workspace_id: str
+    created_at: str
+
+
+class AuthResponse(BaseModel):
+    token: str
+    user: UserOut
+
+
+# ---------------- helpers ----------------
+
+
+def _user_to_out(u: User) -> UserOut:
+    return UserOut(
+        id=u.id,
+        email=u.email,
+        name=u.name or "",
+        default_workspace_id=u.default_workspace_id,
+        created_at=u.created_at.isoformat(),
+    )
+
+
+def _derive_name(email: str, override: Optional[str]) -> str:
+    if override and override.strip():
+        return override.strip()[:120]
+    local = email.split("@", 1)[0]
+    return re.sub(r"[^\w\-\s]", "", local)[:120] or "新用户"
+
+
+# ---------------- routes ----------------
+
+
+@router.post("/register", response_model=AuthResponse)
+async def register(body: RegisterRequest, session: AsyncSession = Depends(get_session)):
+    email = body.email.lower().strip()
+    existed = (
+        await session.execute(select(User).where(User.email == email))
+    ).scalar_one_or_none()
+    if existed:
+        raise HTTPException(status_code=409, detail="该邮箱已被注册")
+
+    name = _derive_name(email, body.name)
+    user = User(
+        email=email,
+        name=name,
+        password_hash=hash_password(body.password),
+        default_workspace_id="pending",
+    )
+    session.add(user)
+    await session.flush()
+
+    workspace = Workspace(name="默认工作区", description="自动创建", owner_id=user.id)
+    session.add(workspace)
+    await session.flush()
+
+    user.default_workspace_id = workspace.id
+    user.last_login_at = datetime.utcnow()
+    await session.commit()
+    await session.refresh(user)
+
+    token = create_access_token(
+        user_id=user.id, email=user.email, workspace_id=workspace.id
+    )
+    return AuthResponse(token=token, user=_user_to_out(user))
+
+
+@router.post("/login", response_model=AuthResponse)
+async def login(body: LoginRequest, session: AsyncSession = Depends(get_session)):
+    email = body.email.lower().strip()
+    user = (
+        await session.execute(select(User).where(User.email == email))
+    ).scalar_one_or_none()
+    if not user or not verify_password(body.password, user.password_hash):
+        raise HTTPException(status_code=401, detail="邮箱或密码错误")
+    if not user.is_active:
+        raise HTTPException(status_code=403, detail="账号已停用")
+
+    user.last_login_at = datetime.utcnow()
+    await session.commit()
+
+    token = create_access_token(
+        user_id=user.id, email=user.email, workspace_id=user.default_workspace_id
+    )
+    return AuthResponse(token=token, user=_user_to_out(user))
+
+
+@router.get("/me", response_model=UserOut)
+async def me(
+    authorization: str = Header(default=""),
+    session: AsyncSession = Depends(get_session),
+):
+    if not authorization.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="未提供 token")
+    token = authorization.split(" ", 1)[1].strip()
+    try:
+        payload = decode_token(token)
+    except Exception as exc:
+        raise HTTPException(status_code=401, detail=f"token 无效: {exc}") from exc
+
+    user = await session.get(User, payload.get("user_id", ""))
+    if not user:
+        raise HTTPException(status_code=404, detail="用户不存在")
+    return _user_to_out(user)
+
+
+@router.get("/workspaces")
+async def list_workspaces(
+    authorization: str = Header(default=""),
+    session: AsyncSession = Depends(get_session),
+):
+    if not authorization.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="未提供 token")
+    token = authorization.split(" ", 1)[1].strip()
+    try:
+        payload = decode_token(token)
+    except Exception as exc:
+        raise HTTPException(status_code=401, detail=f"token 无效: {exc}") from exc
+
+    res = await session.execute(
+        select(Workspace).where(Workspace.owner_id == payload.get("user_id", ""))
+    )
+    items = res.scalars().all()
+    return [
+        {
+            "id": w.id,
+            "name": w.name,
+            "description": w.description,
+            "created_at": w.created_at.isoformat(),
+        }
+        for w in items
+    ]
