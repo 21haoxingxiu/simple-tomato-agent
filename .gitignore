@@ -130,3 +130,15 @@ go.work.sum
 
 # Vendor directory (keep if vendoring, remove line if using modules only)
 # vendor/
+
+# ─── Data files (runtime) ────────────────────────────────────
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# ─── Screenshot tools ─────────────────────────────────────────
+docs/screenshots/*.js
+docs/screenshots/*.py
+docs/screenshots/package*.json
+docs/screenshots/node_modules/
