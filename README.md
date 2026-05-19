@@ -12,6 +12,27 @@
 ![Neo4j](https://img.shields.io/badge/Neo4j-GraphRAG-008cc1)
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker)
 
+## 📸 界面预览
+
+<table>
+  <tr>
+    <td align="center"><b>会话聊天</b></td>
+    <td align="center"><b>知识库管理</b></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/chat.png" alt="聊天界面" width="400"/></td>
+    <td><img src="docs/screenshots/knowledge.png" alt="知识库界面" width="400"/></td>
+  </tr>
+  <tr>
+    <td align="center"><b>评测系统</b></td>
+    <td align="center"><b>帮助中心</b></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/eval.png" alt="评测界面" width="400"/></td>
+    <td><img src="docs/screenshots/help.png" alt="帮助中心界面" width="400"/></td>
+  </tr>
+</table>
+
 ## ✨ 核心特性
 
 | 模块 | 能力 |
