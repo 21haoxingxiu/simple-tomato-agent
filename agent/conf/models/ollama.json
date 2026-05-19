@@ -1,0 +1,35 @@
+{
+  "name": "Ollama",
+  "provider_class": "ollama",
+  "url": {
+    "default": "http://localhost:11434"
+  },
+  "supports": ["chat", "embedding"],
+  "models": [
+    {
+      "name": "llama3.2",
+      "max_tokens": 131072,
+      "model_types": ["chat"]
+    },
+    {
+      "name": "llama3.1",
+      "max_tokens": 131072,
+      "model_types": ["chat"]
+    },
+    {
+      "name": "qwen2.5",
+      "max_tokens": 131072,
+      "model_types": ["chat"]
+    },
+    {
+      "name": "nomic-embed-text",
+      "max_tokens": 8192,
+      "model_types": ["embedding"]
+    },
+    {
+      "name": "mxbai-embed-large",
+      "max_tokens": 512,
+      "model_types": ["embedding"]
+    }
+  ]
+}

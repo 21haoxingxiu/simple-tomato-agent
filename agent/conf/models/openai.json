@@ -1,0 +1,40 @@
+{
+  "name": "OpenAI",
+  "provider_class": "openai",
+  "url": {
+    "default": "https://api.openai.com/v1"
+  },
+  "supports": ["chat", "embedding", "stt", "tts"],
+  "models": [
+    {
+      "name": "gpt-4o",
+      "max_tokens": 128000,
+      "model_types": ["chat"]
+    },
+    {
+      "name": "gpt-4o-mini",
+      "max_tokens": 128000,
+      "model_types": ["chat"]
+    },
+    {
+      "name": "gpt-4-turbo",
+      "max_tokens": 128000,
+      "model_types": ["chat"]
+    },
+    {
+      "name": "gpt-3.5-turbo",
+      "max_tokens": 16385,
+      "model_types": ["chat"]
+    },
+    {
+      "name": "text-embedding-3-small",
+      "max_tokens": 8191,
+      "model_types": ["embedding"]
+    },
+    {
+      "name": "text-embedding-3-large",
+      "max_tokens": 8191,
+      "model_types": ["embedding"]
+    }
+  ]
+}

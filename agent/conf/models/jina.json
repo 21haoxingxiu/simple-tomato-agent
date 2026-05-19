@@ -1,0 +1,20 @@
+{
+  "name": "Jina",
+  "provider_class": "jina",
+  "url": {
+    "default": "https://api.jina.ai/v1"
+  },
+  "supports": ["embedding", "rerank"],
+  "models": [
+    {
+      "name": "jina-embeddings-v3",
+      "max_tokens": 8192,
+      "model_types": ["embedding"]
+    },
+    {
+      "name": "jina-reranker-v2-base-multilingual",
+      "max_tokens": 8192,
+      "model_types": ["rerank"]
+    }
+  ]
+}

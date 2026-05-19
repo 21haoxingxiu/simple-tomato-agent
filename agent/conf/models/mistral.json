@@ -1,0 +1,30 @@
+{
+  "name": "Mistral",
+  "provider_class": "mistral",
+  "url": {
+    "default": "https://api.mistral.ai/v1"
+  },
+  "supports": ["chat", "embedding"],
+  "models": [
+    {
+      "name": "mistral-large-latest",
+      "max_tokens": 128000,
+      "model_types": ["chat"]
+    },
+    {
+      "name": "mistral-small-latest",
+      "max_tokens": 128000,
+      "model_types": ["chat"]
+    },
+    {
+      "name": "open-mistral-nemo",
+      "max_tokens": 128000,
+      "model_types": ["chat"]
+    },
+    {
+      "name": "mistral-embed",
+      "max_tokens": 8192,
+      "model_types": ["embedding"]
+    }
+  ]
+}

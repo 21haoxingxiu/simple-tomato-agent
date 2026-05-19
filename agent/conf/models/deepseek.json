@@ -1,0 +1,23 @@
+{
+  "name": "DeepSeek",
+  "provider_class": "deepseek",
+  "url": {
+    "default": "https://api.deepseek.com"
+  },
+  "supports": ["chat"],
+  "models": [
+    {
+      "name": "deepseek-chat",
+      "max_tokens": 64000,
+      "model_types": ["chat"]
+    },
+    {
+      "name": "deepseek-reasoner",
+      "max_tokens": 64000,
+      "model_types": ["chat"],
+      "extra_params": {
+        "thinking": true
+      }
+    }
+  ]
+}

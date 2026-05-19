@@ -35,7 +35,9 @@ from routers.auth import router as auth_router  # noqa: E402
 from routers.chat import router as chat_router  # noqa: E402
 from routers.evaluation import router as eval_router  # noqa: E402
 from routers.knowledge import router as knowledge_router  # noqa: E402
+from routers.models import router as models_router  # noqa: E402
 from routers.voice import router as voice_router  # noqa: E402
+from routers.search import router as search_router  # noqa: E402
 
 
 def _split_csv(raw: str | None) -> list[str]:
@@ -88,6 +90,8 @@ app.include_router(chat_router)
 app.include_router(knowledge_router)
 app.include_router(eval_router)
 app.include_router(voice_router)
+app.include_router(models_router)
+app.include_router(search_router)
 
 
 @app.get("/health")
