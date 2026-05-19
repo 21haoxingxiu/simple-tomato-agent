@@ -364,28 +364,8 @@ export default function ChatPage() {
 
         {/* Input */}
         <div className="p-4 border-t border-gray-200 bg-white">
-          <div className="flex gap-2 items-end max-w-4xl mx-auto">
-            <button
-              onClick={handleVoice}
-              disabled={recorder.transcribing}
-              title={recorder.recording ? "停止并转写" : "语音输入"}
-              className={clsx(
-                "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors",
-                recorder.recording
-                  ? "bg-red-500 text-white animate-pulse"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-              )}
-            >
-              {recorder.transcribing ? (
-                <Loader2 size={18} className="animate-spin" />
-              ) : recorder.recording ? (
-                <Square size={16} />
-              ) : (
-                <Mic size={18} />
-              )}
-            </button>
-
-            <div className="flex-1 bg-gray-50 border border-gray-200 rounded-2xl px-4 py-3 focus-within:border-indigo-400 focus-within:ring-2 focus-within:ring-indigo-100 transition-all">
+          <div className="max-w-4xl mx-auto">
+            <div className="bg-gray-50 border border-gray-200 rounded-2xl focus-within:border-indigo-400 focus-within:ring-2 focus-within:ring-indigo-100 transition-all">
               <textarea
                 rows={1}
                 value={input}
@@ -397,28 +377,50 @@ export default function ChatPage() {
                   }
                 }}
                 placeholder="输入消息… (Enter 发送, Shift+Enter 换行)"
-                className="w-full bg-transparent text-sm text-gray-800 placeholder-gray-400 outline-none resize-none"
+                className="w-full bg-transparent text-sm text-gray-800 placeholder-gray-400 outline-none resize-none px-4 pt-3 pb-2"
                 style={{ maxHeight: 160 }}
               />
-            </div>
+              {/* Button row - centered */}
+              <div className="flex items-center justify-center gap-2 pb-3">
+                <button
+                  onClick={handleVoice}
+                  disabled={recorder.transcribing}
+                  title={recorder.recording ? "停止并转写" : "语音输入"}
+                  className={clsx(
+                    "w-9 h-9 rounded-xl flex items-center justify-center transition-colors",
+                    recorder.recording
+                      ? "bg-red-500 text-white animate-pulse"
+                      : "bg-white border border-gray-200 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                  )}
+                >
+                  {recorder.transcribing ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : recorder.recording ? (
+                    <Square size={14} />
+                  ) : (
+                    <Mic size={16} />
+                  )}
+                </button>
 
-            {loading ? (
-              <button
-                onClick={cancelStream}
-                className="w-10 h-10 rounded-xl bg-gray-200 text-gray-700 flex items-center justify-center hover:bg-gray-300 shrink-0"
-                title="停止生成"
-              >
-                <Square size={16} />
-              </button>
-            ) : (
-              <button
-                onClick={() => handleSend()}
-                disabled={!input.trim()}
-                className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shrink-0"
-              >
-                <Send size={18} />
-              </button>
-            )}
+                {loading ? (
+                  <button
+                    onClick={cancelStream}
+                    className="w-9 h-9 rounded-xl bg-gray-200 text-gray-700 flex items-center justify-center hover:bg-gray-300"
+                    title="停止生成"
+                  >
+                    <Square size={14} />
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handleSend()}
+                    disabled={!input.trim()}
+                    className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <Send size={16} />
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
           <p className="text-center text-xs text-gray-400 mt-2">
             消息经过 Go 网关 JWT 鉴权 → Python LangGraph(多路召回 + 重排)
