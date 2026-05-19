@@ -146,6 +146,24 @@ async def me(
     return _user_to_out(user)
 
 
+class WorkspaceCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    description: Optional[str] = None
+
+
+class WorkspaceUpdate(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=200)
+    description: Optional[str] = None
+
+
+class WorkspaceOut(BaseModel):
+    id: str
+    name: str
+    description: str
+    owner_id: str
+    created_at: str
+
+
 @router.get("/workspaces")
 async def list_workspaces(
     authorization: str = Header(default=""),
@@ -172,3 +190,124 @@ async def list_workspaces(
         }
         for w in items
     ]
+
+
+@router.post("/workspaces", response_model=WorkspaceOut)
+async def create_workspace(
+    body: WorkspaceCreate,
+    authorization: str = Header(default=""),
+    session: AsyncSession = Depends(get_session),
+):
+    if not authorization.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="未提供 token")
+    token = authorization.split(" ", 1)[1].strip()
+    try:
+        payload = decode_token(token)
+    except Exception as exc:
+        raise HTTPException(status_code=401, detail=f"token 无效: {exc}") from exc
+
+    user_id = payload.get("user_id", "")
+    workspace = Workspace(
+        name=body.name,
+        description=body.description or "",
+        owner_id=user_id,
+    )
+    session.add(workspace)
+    await session.commit()
+    await session.refresh(workspace)
+    return WorkspaceOut(
+        id=workspace.id,
+        name=workspace.name,
+        description=workspace.description,
+        owner_id=workspace.owner_id,
+        created_at=workspace.created_at.isoformat(),
+    )
+
+
+@router.get("/workspaces/{workspace_id}", response_model=WorkspaceOut)
+async def get_workspace(
+    workspace_id: str,
+    authorization: str = Header(default=""),
+    session: AsyncSession = Depends(get_session),
+):
+    if not authorization.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="未提供 token")
+    token = authorization.split(" ", 1)[1].strip()
+    try:
+        payload = decode_token(token)
+    except Exception as exc:
+        raise HTTPException(status_code=401, detail=f"token 无效: {exc}") from exc
+
+    workspace = await session.get(Workspace, workspace_id)
+    if not workspace or workspace.owner_id != payload.get("user_id", ""):
+        raise HTTPException(status_code=404, detail="工作区不存在")
+    return WorkspaceOut(
+        id=workspace.id,
+        name=workspace.name,
+        description=workspace.description,
+        owner_id=workspace.owner_id,
+        created_at=workspace.created_at.isoformat(),
+    )
+
+
+@router.patch("/workspaces/{workspace_id}", response_model=WorkspaceOut)
+async def update_workspace(
+    workspace_id: str,
+    body: WorkspaceUpdate,
+    authorization: str = Header(default=""),
+    session: AsyncSession = Depends(get_session),
+):
+    if not authorization.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="未提供 token")
+    token = authorization.split(" ", 1)[1].strip()
+    try:
+        payload = decode_token(token)
+    except Exception as exc:
+        raise HTTPException(status_code=401, detail=f"token 无效: {exc}") from exc
+
+    workspace = await session.get(Workspace, workspace_id)
+    if not workspace or workspace.owner_id != payload.get("user_id", ""):
+        raise HTTPException(status_code=404, detail="工作区不存在")
+    if body.name is not None:
+        workspace.name = body.name
+    if body.description is not None:
+        workspace.description = body.description
+    await session.commit()
+    await session.refresh(workspace)
+    return WorkspaceOut(
+        id=workspace.id,
+        name=workspace.name,
+        description=workspace.description,
+        owner_id=workspace.owner_id,
+        created_at=workspace.created_at.isoformat(),
+    )
+
+
+@router.delete("/workspaces/{workspace_id}")
+async def delete_workspace(
+    workspace_id: str,
+    authorization: str = Header(default=""),
+    session: AsyncSession = Depends(get_session),
+):
+    if not authorization.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="未提供 token")
+    token = authorization.split(" ", 1)[1].strip()
+    try:
+        payload = decode_token(token)
+    except Exception as exc:
+        raise HTTPException(status_code=401, detail=f"token 无效: {exc}") from exc
+
+    workspace = await session.get(Workspace, workspace_id)
+    if not workspace or workspace.owner_id != payload.get("user_id", ""):
+        raise HTTPException(status_code=404, detail="工作区不存在")
+
+    # Prevent deleting the last workspace
+    count = await session.execute(
+        select(Workspace).where(Workspace.owner_id == payload.get("user_id", ""))
+    )
+    if len(count.scalars().all()) <= 1:
+        raise HTTPException(status_code=400, detail="无法删除最后一个工作区")
+
+    await session.delete(workspace)
+    await session.commit()
+    return {"ok": True, "deleted_id": workspace_id}

@@ -48,7 +48,7 @@ function getWorkspaceId(): string | null {
   }
 }
 
-function authHeaders(): Record<string, string> {
+export function authHeaders(): Record<string, string> {
   const headers: Record<string, string> = {}
   const token = getToken()
   if (token) headers["Authorization"] = `Bearer ${token}`
@@ -122,6 +122,47 @@ export const authApi = {
     request<{ id: string; name: string; description: string; created_at: string }[]>(
       "/api/auth/workspaces"
     ),
+}
+
+export interface WorkspaceCreateRequest {
+  name: string
+  description?: string
+}
+
+export interface WorkspaceUpdateRequest {
+  name?: string
+  description?: string
+}
+
+export interface WorkspaceResponse {
+  id: string
+  name: string
+  description: string
+  owner_id: string
+  created_at: string
+}
+
+export const workspaceApi = {
+  list: () =>
+    request<{ id: string; name: string; description: string; created_at: string }[]>(
+      "/api/auth/workspaces"
+    ),
+  get: (id: string) =>
+    request<WorkspaceResponse>(`/api/auth/workspaces/${id}`),
+  create: (body: WorkspaceCreateRequest) =>
+    request<WorkspaceResponse>("/api/auth/workspaces", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  update: (id: string, body: WorkspaceUpdateRequest) =>
+    request<WorkspaceResponse>(`/api/auth/workspaces/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+  remove: (id: string) =>
+    request<{ ok: boolean; deleted_id: string }>(`/api/auth/workspaces/${id}`, {
+      method: "DELETE",
+    }),
 }
 
 // ---------- Knowledge ----------

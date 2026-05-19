@@ -26,7 +26,7 @@ PY_PID=$!
 if command -v go &>/dev/null; then
   echo "🔵 Starting Go Gateway..."
   cd "$ROOT/gateway"
-  go run . &
+  CORS_ALLOWED_ORIGINS="http://127.0.0.1:3000,http://localhost:3000" go run . &
   GO_PID=$!
 fi
 

@@ -58,6 +58,8 @@ func main() {
 		api.Any("/eval/*path", proxyHandler.ProxyToAgent)
 		api.Any("/voice/*path", proxyHandler.ProxyToAgent)
 		api.Any("/agent/*path", proxyHandler.ProxyToAgent)
+		api.Any("/models/*path", proxyHandler.ProxyToAgent)
+		api.Any("/search", proxyHandler.ProxyToAgent)
 	}
 
 	log.Printf("Gateway listening on %s -> agent=%s (origins=%v, ip_allowlist=%q, trust_proxy=%v)",

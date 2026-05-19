@@ -2,7 +2,7 @@
 
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
-import { authApi } from "@/lib/api"
+import { workspaceApi } from "@/lib/api"
 
 export interface Workspace {
   id: string
@@ -41,7 +41,7 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
 
       refresh: async () => {
         try {
-          const list = await authApi.workspaces()
+          const list = await workspaceApi.list()
           get().setWorkspaces(
             list.map((w) => ({
               id: w.id,
