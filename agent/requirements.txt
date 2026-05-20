@@ -31,6 +31,16 @@ jieba==0.42.1
 pypdf==5.1.0
 python-docx==1.1.2
 beautifulsoup4==4.12.3
+PyMuPDF==1.24.13  # PDF processing with better image extraction
+Pillow==10.4.0  # Image processing
+
+# DeepDoc / OCR (可选依赖，用于扫描件和复杂文档解析)
+# 安装方式: pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu
+pytesseract==0.3.13  # Tesseract OCR wrapper
+# paddleocr==2.8.1  # PaddleOCR (中文友好，依赖较重)
+# paddlepaddle==2.6.2  # PaddleOCR dependency
+opencv-python==4.10.0.84  # Image processing for OCR
+langdetect==1.0.9  # Language detection
 
 # OpenAI(语音/嵌入)
 openai==1.55.2

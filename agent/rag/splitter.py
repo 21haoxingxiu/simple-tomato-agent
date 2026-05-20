@@ -1,49 +1,76 @@
-"""文本分块与文档解析。"""
-from __future__ import annotations
+def _parse_with_deepdoc(
+    filename: str,
+    content: bytes,
+    enable_ocr: bool = False,
+    enable_layout: bool = False,
+    enable_table_structure: bool = False,
+    **kwargs
+) -> str:
+    """
+    使用 DeepDoc 进行增强解析
 
-import io
-import logging
-import re
-from pathlib import Path
+    Args:
+        filename: 文件名
+        content: 文件内容
+        enable_ocr: 是否启用 OCR
+        enable_layout: 是否启用布局识别
+        enable_table_structure: 是否启用表格结构识别
 
-logger = logging.getLogger(__name__)
+    Returns:
+        解析后的文本内容
+    """
+    import tempfile
 
-DEFAULT_CHUNK_SIZE = 800
-DEFAULT_CHUNK_OVERLAP = 120
-
-
-def parse_file(filename: str, content: bytes) -> str:
-    """支持 pdf / docx / md / txt / html;尽力 best-effort 解析。"""
     suffix = Path(filename).suffix.lower()
 
-    if suffix == ".pdf":
-        try:
-            from pypdf import PdfReader
+    # Save content to temporary file
+    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+        tmp_path = tmp.name
+        tmp.write(content)
 
-            reader = PdfReader(io.BytesIO(content))
-            return "\n".join(page.extract_text() or "" for page in reader.pages)
-        except Exception as exc:
-            raise ValueError(f"PDF parse error: {exc}") from exc
+    try:
+        # Import DeepDoc parsers
+        from deepdoc.parser.pdf_parser import PDFParser
+        from deepdoc.parser.image_parser import ImageParser
+        from deepdoc.parser.base import ParsingLevel
 
-    if suffix == ".docx":
-        try:
-            from docx import Document as DocxDocument  # type: ignore
+        # Determine parser
+        if suffix == ".pdf":
+            parser = PDFParser(
+                parsing_level=ParsingLevel.FULL if enable_ocr else ParsingLevel.STANDARD
+            )
+        elif suffix in [".png", ".jpg", ".jpeg", ".bmp", ".tiff"]:
+            parser = ImageParser()
+        else:
+            raise ValueError(f"Unsupported format for DeepDoc: {suffix}")
 
-            doc = DocxDocument(io.BytesIO(content))
-            return "\n".join(p.text for p in doc.paragraphs)
-        except Exception as exc:
-            raise ValueError(f"DOCX parse error: {exc}") from exc
+        # Parse document
+        result = parser.parse(tmp_path)
 
-    if suffix in (".html", ".htm"):
-        try:
-            from bs4 import BeautifulSoup  # type: ignore
+        # Extract text content
+        # For enhanced parsing, we might want to structure the output differently
+        if enable_layout or enable_table_structure:
+            # Include structured elements
+            text_parts = []
 
-            soup = BeautifulSoup(content, "html.parser")
-            return soup.get_text("\n")
-        except Exception:
-            return content.decode("utf-8", errors="replace")
+            for element in result.elements:
+                if element.type == "table" and enable_table_structure:
+                    # Include both natural language and markdown versions
+                    table_text = element.content
+                    if element.metadata.get("markdown"):
+                        table_text += f"\n\n表格（Markdown格式）:\n{element.metadata['markdown']}"
+                    text_parts.append(table_text)
+                else:
+                    text_parts.append(element.content)
 
-    return content.decode("utf-8", errors="replace")
+            return "\n\n".join(text_parts)
+        else:
+            return result.text_content
+
+    finally:
+        # Clean up temporary file
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
 
 
 def split_text(
