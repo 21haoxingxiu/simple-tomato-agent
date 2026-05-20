@@ -97,6 +97,7 @@ export interface UserInfo {
   id: string
   email: string
   name: string
+  avatar_url?: string | null
   default_workspace_id: string
   created_at: string
 }
@@ -104,6 +105,11 @@ export interface UserInfo {
 export interface AuthResponse {
   token: string
   user: UserInfo
+}
+
+export interface UserUpdateRequest {
+  name?: string
+  avatar_url?: string
 }
 
 export const authApi = {
@@ -117,7 +123,12 @@ export const authApi = {
       method: "POST",
       body: JSON.stringify({ email, password, name }),
     }),
-  me: () => request<UserInfo>("/api/me"),
+  me: () => request<UserInfo>("/api/auth/me"),
+  updateMe: (data: UserUpdateRequest) =>
+    request<UserInfo>("/api/auth/me", {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
   workspaces: () =>
     request<{ id: string; name: string; description: string; created_at: string }[]>(
       "/api/auth/workspaces"

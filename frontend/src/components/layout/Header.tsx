@@ -132,10 +132,14 @@ export function Header() {
               <p className="text-xs text-gray-500 truncate">{user?.email}</p>
             </div>
             <div className="py-1">
-              <button className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 text-left">
+              <Link
+                href="/settings/profile"
+                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 text-left"
+                onClick={() => setOpen(false)}
+              >
                 <UserIcon size={14} />
                 账号设置
-              </button>
+              </Link>
               <button
                 onClick={handleLogout}
                 className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 text-left"

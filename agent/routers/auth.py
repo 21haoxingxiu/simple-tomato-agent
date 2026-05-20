@@ -41,8 +41,14 @@ class UserOut(BaseModel):
     id: str
     email: str
     name: str
+    avatar_url: Optional[str] = None
     default_workspace_id: str
     created_at: str
+
+
+class UserUpdateRequest(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=120)
+    avatar_url: Optional[str] = Field(None, max_length=500)
 
 
 class AuthResponse(BaseModel):
@@ -58,6 +64,7 @@ def _user_to_out(u: User) -> UserOut:
         id=u.id,
         email=u.email,
         name=u.name or "",
+        avatar_url=u.avatar_url,
         default_workspace_id=u.default_workspace_id,
         created_at=u.created_at.isoformat(),
     )
@@ -143,6 +150,36 @@ async def me(
     user = await session.get(User, payload.get("user_id", ""))
     if not user:
         raise HTTPException(status_code=404, detail="用户不存在")
+    return _user_to_out(user)
+
+
+@router.patch("/me", response_model=UserOut)
+async def update_me(
+    body: UserUpdateRequest,
+    authorization: str = Header(default=""),
+    session: AsyncSession = Depends(get_session),
+):
+    """更新当前用户信息（名称和头像）"""
+    if not authorization.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="未提供 token")
+    token = authorization.split(" ", 1)[1].strip()
+    try:
+        payload = decode_token(token)
+    except Exception as exc:
+        raise HTTPException(status_code=401, detail=f"token 无效: {exc}") from exc
+
+    user = await session.get(User, payload.get("user_id", ""))
+    if not user:
+        raise HTTPException(status_code=404, detail="用户不存在")
+
+    # 更新用户信息
+    if body.name is not None:
+        user.name = body.name.strip()[:120]
+    if body.avatar_url is not None:
+        user.avatar_url = body.avatar_url
+
+    await session.commit()
+    await session.refresh(user)
     return _user_to_out(user)
 
 

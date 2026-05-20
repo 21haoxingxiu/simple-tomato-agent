@@ -1,8 +1,10 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Settings, Bot, Database, Sparkles, Key, RefreshCw, Check, X, Loader2, Eye, EyeOff } from "lucide-react"
+import Link from "next/link"
+import { Settings, Bot, Database, Sparkles, Key, RefreshCw, Check, X, Loader2, Eye, EyeOff, User, ChevronRight } from "lucide-react"
 import { modelApi, ProviderInfo, ModelInfo } from "@/lib/api/models"
+import { useAuthStore } from "@/store/auth"
 import clsx from "clsx"
 
 type ModelType = "chat" | "embedding" | "rerank"
@@ -190,9 +192,33 @@ export default function SettingsPage() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
           <Settings className="w-7 h-7" />
-          模型设置
+          设置
         </h1>
-        <p className="text-gray-500 mt-1">配置 API Key 和模型选择</p>
+        <p className="text-gray-500 mt-1">管理您的账户和应用设置</p>
+      </div>
+
+      {/* Profile Settings Card */}
+      <Link
+        href="/settings/profile"
+        className="block mb-6 bg-white rounded-xl border border-gray-200 p-4 hover:border-indigo-300 hover:shadow-sm transition-all"
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+              <User size={24} />
+            </div>
+            <div>
+              <h3 className="font-semibold text-gray-900">个人资料</h3>
+              <p className="text-sm text-gray-500">管理您的名称、头像等个人信息</p>
+            </div>
+          </div>
+          <ChevronRight className="w-5 h-5 text-gray-400" />
+        </div>
+      </Link>
+
+      {/* Divider */}
+      <div className="mb-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">模型配置</h2>
       </div>
 
       {/* Tabs */}

@@ -20,6 +20,7 @@ class User(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
     email: Mapped[str] = mapped_column(String(200), unique=True, nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(120), default="")
+    avatar_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     default_workspace_id: Mapped[str] = mapped_column(String(36), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)

@@ -15,7 +15,6 @@ const NAV_ITEMS = [
   { href: "/knowledge", icon: BookOpen, label: "知识库" },
   { href: "/chat", icon: MessageSquare, label: "会话聊天" },
   { href: "/eval", icon: FlaskConical, label: "评测" },
-  { href: "/help", icon: HelpCircle, label: "帮助中心" },
 ]
 
 export function Sidebar() {
