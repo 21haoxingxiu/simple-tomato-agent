@@ -33,7 +33,7 @@ func Load() *Config {
 		BindAddr:        bind,
 		JWTSecret:       getEnv("JWT_SECRET", "dev-secret-change-in-prod"),
 		AgentServiceURL: getEnv("AGENT_SERVICE_URL", "http://127.0.0.1:8000"),
-		AllowedOrigins:  splitCSV(getEnv("CORS_ALLOWED_ORIGINS", "http://127.0.0.1:3000")),
+		AllowedOrigins:  splitCSV(getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000")),
 		IPAllowlistRaw:  os.Getenv("IP_ALLOWLIST"),
 		TrustProxy: strings.EqualFold(os.Getenv("TRUST_PROXY"), "true") ||
 			os.Getenv("TRUST_PROXY") == "1",

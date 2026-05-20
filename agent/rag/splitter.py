@@ -1,3 +1,107 @@
+"""文本分块与文档解析。"""
+from __future__ import annotations
+
+import io
+import logging
+import os
+import re
+from pathlib import Path
+from typing import Optional
+from enum import Enum
+
+logger = logging.getLogger(__name__)
+
+DEFAULT_CHUNK_SIZE = 800
+DEFAULT_CHUNK_OVERLAP = 120
+
+
+class ParsingLevel(str, Enum):
+    """文档解析级别"""
+    BASIC = "basic"  # 基础文本提取
+    STANDARD = "standard"  # 标准（现有方式）
+    ENHANCED = "enhanced"  # 增强（使用 DeepDoc）
+
+
+def parse_file(
+    filename: str,
+    content: bytes,
+    parsing_level: ParsingLevel = ParsingLevel.STANDARD,
+    enable_ocr: bool = False,
+    enable_layout: bool = False,
+    enable_table_structure: bool = False,
+    **kwargs
+) -> str:
+    """
+    支持多种文档格式解析，可选择使用 DeepDoc 增强解析。
+
+    Args:
+        filename: 文件名
+        content: 文件内容（字节）
+        parsing_level: 解析级别（basic/standard/enhanced）
+        enable_ocr: 是否启用 OCR（自动用于 enhanced 级别）
+        enable_layout: 是否启用布局识别
+        enable_table_structure: 是否启用表格结构识别
+        **kwargs: 额外参数
+
+    Returns:
+        解析后的文本内容
+    """
+    suffix = Path(filename).suffix.lower()
+
+    # Check if DeepDoc is enabled
+    use_deepdoc = (
+        parsing_level == ParsingLevel.ENHANCED or
+        enable_ocr or
+        enable_layout or
+        enable_table_structure
+    )
+
+    if use_deepdoc and suffix in [".pdf", ".png", ".jpg", ".jpeg"]:
+        # Use DeepDoc enhanced parsing
+        try:
+            return _parse_with_deepdoc(
+                filename,
+                content,
+                enable_ocr=enable_ocr or parsing_level == ParsingLevel.ENHANCED,
+                enable_layout=enable_layout or parsing_level == ParsingLevel.ENHANCED,
+                enable_table_structure=enable_table_structure or parsing_level == ParsingLevel.ENHANCED,
+                **kwargs
+            )
+        except Exception as e:
+            logger.warning(f"DeepDoc parsing failed, falling back to standard: {e}")
+            # Fall through to standard parsing
+
+    # Standard parsing (existing logic)
+    if suffix == ".pdf":
+        try:
+            from pypdf import PdfReader
+
+            reader = PdfReader(io.BytesIO(content))
+            return "\n".join(page.extract_text() or "" for page in reader.pages)
+        except Exception as exc:
+            raise ValueError(f"PDF parse error: {exc}") from exc
+
+    if suffix == ".docx":
+        try:
+            from docx import Document as DocxDocument  # type: ignore
+
+            doc = DocxDocument(io.BytesIO(content))
+            return "\n".join(p.text for p in doc.paragraphs)
+        except Exception as exc:
+            raise ValueError(f"DOCX parse error: {exc}") from exc
+
+    if suffix in (".html", ".htm"):
+        try:
+            from bs4 import BeautifulSoup  # type: ignore
+
+            soup = BeautifulSoup(content, "html.parser")
+            return soup.get_text("\n")
+        except Exception:
+            return content.decode("utf-8", errors="replace")
+
+    return content.decode("utf-8", errors="replace")
+
+
 def _parse_with_deepdoc(
     filename: str,
     content: bytes,
