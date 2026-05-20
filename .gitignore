@@ -137,6 +137,15 @@ go.work.sum
 *.sqlite
 *.sqlite3
 
+# Vector database data
+agent/data/chroma/
+agent/data/milvus/
+agent/data/elasticsearch/
+
+# DeepDoc cache
+cache/deepdoc/
+.cache/
+
 # ─── Screenshot tools ─────────────────────────────────────────
 docs/screenshots/*.js
 docs/screenshots/*.py

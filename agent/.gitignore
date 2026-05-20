@@ -38,6 +38,11 @@ nosetests.xml
 .env.*
 !.env.example
 
+# ─── Database ─────────────────────────────────────────────────
+data/chroma/
+data/*.sqlite3
+data/*.db
+
 # ─── Misc ────────────────────────────────────────────────────
 *.log
 .DS_Store
